@@ -257,10 +257,10 @@ mod tests {
         }
     }
 
-    // $ cargo test --release --all-features print_range_check_1
+    // $ cargo test --release --all-features print_decompose_range_check_1
     #[cfg(feature = "dev-graph")]
     #[test]
-    fn print_range_check_1() {
+    fn print_decompose_range_check_1() {
         use plotters::prelude::*;
 
         let root = BitMapBackend::new("range-check-decomposed-layout.png", (1024, 3096))

@@ -160,6 +160,7 @@ mod tests {
         }
     }
 
+    // $ cargo test --release --all-features print_range_check_1
     #[cfg(feature = "dev-graph")]
     #[test]
     fn print_range_check_1() {

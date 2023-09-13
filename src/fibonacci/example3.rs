@@ -137,4 +137,30 @@ mod tests {
         let prover = MockProver::run(4, &circuit, vec![]).unwrap();
         prover.assert_satisfied();
     }
+
+    #[cfg(feature = "dev-graph")]
+    #[test]
+    fn plot_fibo3() {
+        use plotters::prelude::*;
+        let root = BitMapBackend::new("fib-3-layout.png", (1024, 3096)).into_drawing_area();
+        root.fill(&WHITE).unwrap();
+        let root = root.titled("Fib 3 Layout", ("sans-serif", 60)).unwrap();
+
+        // let circuit = MyCircuit::<Fp> {
+        //     a: Value::unknown(),
+        //     b: Value::unknown(),
+        // };
+        // halo2_proofs::dev::CircuitLayout::default()
+        //     .render(4, &circuit, &root)
+        //     .unwrap();
+
+        let circuit = FunctionCircuit::<Fp>{
+            a: Fp::ZERO,
+            b: Fp::ZERO,
+            c: Fp::ZERO,
+        };
+        halo2_proofs::dev::CircuitLayout::default()
+            .render(4, &circuit, &root)
+            .unwrap();
+    }
 }

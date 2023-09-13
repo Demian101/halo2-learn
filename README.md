@@ -19,7 +19,20 @@ cargo test -- --nocapture test_example3
 
 Plot the circuit layout
 ```
+cargo test --all-features -- --nocapture plot
+cargo test --all-features -- --nocapture print
+
 cargo test --all-features -- --nocapture plot_fibo1
 cargo test --all-features -- --nocapture plot_fibo2
+cargo test --all-features -- --nocapture plot_fibo3
+
+cargo test --release --all-features print_range_check_1
+cargo test --release --all-features print_range_check_2
+cargo test --release --all-features print_range_check_3
+
+# decompose
+cargo test --release --all-features print_decompose_range_check_1
 ```
+
+
 # halo2-learn

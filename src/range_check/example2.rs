@@ -245,6 +245,7 @@ mod tests {
         }
     }
 
+    // $ cargo test --release --all-features print_range_check_2
     #[cfg(feature = "dev-graph")]
     #[test]
     fn print_range_check_2() {
@@ -257,7 +258,7 @@ mod tests {
             .unwrap();
 
         let circuit = MyCircuit::<Fp, 8, 256> {
-            value: Value::unknown(),
+            simple_value: Value::unknown(),
             lookup_value: Value::unknown(),
         };
         halo2_proofs::dev::CircuitLayout::default()
