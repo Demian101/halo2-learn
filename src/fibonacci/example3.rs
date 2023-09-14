@@ -138,6 +138,7 @@ mod tests {
         prover.assert_satisfied();
     }
 
+    // $ cargo test --release --all-features plot_fibo3
     #[cfg(feature = "dev-graph")]
     #[test]
     fn plot_fibo3() {

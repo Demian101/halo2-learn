@@ -31,7 +31,7 @@ impl<F: PrimeField> FiboChip<F> {
         advice: [Column<Advice>; 3],
         instance: Column<Instance>,
     ) -> FiboConfig {
-        let col_a = advice[0];
+        let col_a = advice[0]; // 对每个 advice 列进行命名
         let col_b = advice[1];
         let col_c = advice[2];
         let selector = meta.selector();
@@ -45,11 +45,15 @@ impl<F: PrimeField> FiboChip<F> {
             //
             // col_a | col_b | col_c | selector
             //   a      b        c       s
-            //
+
+            // Query a selector at the current position.
             let s = meta.query_selector(selector);
+            // if Rotation::next`  means  `ωx`, 这 3 列都在同一行, 所以都是 Rotation::cur()
+            // 除了 Rotation::cur() 之外, 还有 Rotation::prev 和 Rotation::next 
             let a = meta.query_advice(col_a, Rotation::cur());
             let b = meta.query_advice(col_b, Rotation::cur());
             let c = meta.query_advice(col_c, Rotation::cur());
+            // need s * (a + b - c) == 0
             vec![s * (a + b - c)]
         });
 
@@ -64,25 +68,34 @@ impl<F: PrimeField> FiboChip<F> {
     pub fn assign_first_row(
         &self,
         mut layouter: impl Layouter<F>,
-        a: Value<F>,
-        b: Value<F>,
     ) -> Result<(ACell<F>, ACell<F>, ACell<F>), Error> {
         layouter.assign_region(
             || "first row",
             |mut region| {
                 self.config.selector.enable(&mut region, 0)?;
 
-                let a_cell = region
-                    .assign_advice(|| "a", self.config.advice[0], 0, || a)
-                    .map(ACell)?;
+                let a_cell = region.assign_advice_from_instance(
+                    || "f(0)",
+                    self.config.instance,
+                    0, // instance column's row 0
+                    self.config.advice[0],
+                    0  // offset, advice column's row.
+                ).map(ACell)?;
 
-                let b_cell = region
-                    .assign_advice(|| "b", self.config.advice[1], 0, || b)
-                    .map(ACell)?;
+                let b_cell = region.assign_advice_from_instance(
+                    || "f(1)",
+                    self.config.instance,
+                    1, // instance column's row 1
+                    self.config.advice[1],
+                    0   // offset, advice column's row.
+                ).map(ACell)?;
 
-                let c_cell = region
-                    .assign_advice(|| "c", self.config.advice[2], 0, || a + b)
-                    .map(ACell)?;
+                let c_cell = region.assign_advice(
+                    || "f(0)+f(1) i.e. a + b",
+                    self.config.advice[2],
+                    0,
+                    || a_cell.0.value().copied() + b_cell.0.value()
+                ).map(ACell)?;
 
                 Ok((a_cell, b_cell, c_cell))
             },
@@ -90,9 +103,9 @@ impl<F: PrimeField> FiboChip<F> {
     }
 
     pub fn assign_row(
-        &self,
+        &self,  // 当前`FiboChip`实例的引用
         mut layouter: impl Layouter<F>,
-        prev_b: &ACell<F>,
+        prev_b: &ACell<F>,   // Fibonacci 数列中的上一行的第 2/3 个 Advice Cell
         prev_c: &ACell<F>,
     ) -> Result<ACell<F>, Error> {
         layouter.assign_region(
@@ -100,12 +113,13 @@ impl<F: PrimeField> FiboChip<F> {
             |mut region| {
                 self.config.selector.enable(&mut region, 0)?;
 
-                prev_b
-                    .0
-                    .copy_advice(|| "a", &mut region, self.config.advice[0], 0)?;
-                prev_c
-                    .0
-                    .copy_advice(|| "b", &mut region, self.config.advice[1], 0)?;
+                prev_b.0.copy_advice(
+                    || "a", 
+                    &mut region, 
+                    self.config.advice[0], 
+                    0
+                )?;
+                prev_c.0.copy_advice(|| "b", &mut region, self.config.advice[1], 0)?;
 
                 let c_val = prev_b.0.value().copied() + prev_c.0.value();
 
@@ -129,10 +143,7 @@ impl<F: PrimeField> FiboChip<F> {
 }
 
 #[derive(Default)]
-struct MyCircuit<F> {
-    pub a: Value<F>,
-    pub b: Value<F>,
-}
+struct MyCircuit<F> (PhantomData<F>);
 
 impl<F: PrimeField> Circuit<F> for MyCircuit<F> {
     type Config = FiboConfig;
@@ -157,11 +168,12 @@ impl<F: PrimeField> Circuit<F> for MyCircuit<F> {
     ) -> Result<(), Error> {
         let chip = FiboChip::construct(config);
 
-        let (prev_a, mut prev_b, mut prev_c) =
-            chip.assign_first_row(layouter.namespace(|| "first row"), self.a, self.b)?;
-
-        chip.expose_public(layouter.namespace(|| "private a"), &prev_a, 0)?;
-        chip.expose_public(layouter.namespace(|| "private b"), &prev_b, 1)?;
+        let (_, mut prev_b, mut prev_c) =
+            chip.assign_first_row(layouter.namespace(|| "first row"))?;
+        
+        // 这是干啥??
+        // chip.expose_public(layouter.namespace(|| "private a"), &prev_a, 0)?;
+        // chip.expose_public(layouter.namespace(|| "private b"), &prev_b, 1)?;
 
         for _i in 3..10 {
             let c_cell = chip.assign_row(layouter.namespace(|| "next row"), &prev_b, &prev_c)?;
@@ -179,6 +191,7 @@ impl<F: PrimeField> Circuit<F> for MyCircuit<F> {
 mod tests {
     use super::MyCircuit;
     use halo2_proofs::{circuit::Value, dev::MockProver, pasta::Fp};
+    use std::marker::PhantomData;
 
     #[test]
     fn test_example1() {
@@ -188,22 +201,20 @@ mod tests {
         let b = Fp::from(1); // F[1]
         let out = Fp::from(55); // F[9]
 
-        let circuit = MyCircuit {
-            a: Value::known(a),
-            b: Value::known(b),
-        };
+        let circuit = MyCircuit(PhantomData);
 
         let mut public_input = vec![a, b, out];
 
         let prover = MockProver::run(k, &circuit, vec![public_input.clone()]).unwrap();
         prover.assert_satisfied();
 
-        public_input[2] += Fp::one();
+        public_input[2] += Fp::one(); // out += 2  =>  unsatisfied
         let _prover = MockProver::run(k, &circuit, vec![public_input]).unwrap();
         // uncomment the following line and the assert will fail
         // _prover.assert_satisfied();
     }
 
+    // $ cargo test --release --all-features plot_fibo1
     #[cfg(feature = "dev-graph")]
     #[test]
     fn plot_fibo1() {
@@ -213,10 +224,7 @@ mod tests {
         root.fill(&WHITE).unwrap();
         let root = root.titled("Fib 1 Layout", ("sans-serif", 60)).unwrap();
 
-        let circuit = MyCircuit::<Fp> {
-            a: Value::unknown(),
-            b: Value::unknown(),
-        };
+        let circuit = MyCircuit::<Fp>(PhantomData);
         halo2_proofs::dev::CircuitLayout::default()
             .render(4, &circuit, &root)
             .unwrap();
