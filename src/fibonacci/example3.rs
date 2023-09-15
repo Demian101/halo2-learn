@@ -36,7 +36,7 @@ impl<F: PrimeField> FunctionChip<F> {
         let is_zero_advice_column = meta.advice_column();
 
         // apply on column, not cell ; cell's assignments base on `fn assign()`
-        //  returns IsZeroConfig<F>
+        //   returns IsZeroConfig<F>
         let a_equals_b: IsZeroConfig<F> = IsZeroChip::configure(
             meta,
             |meta| meta.query_selector(selector),
@@ -85,7 +85,7 @@ impl<F: PrimeField> FunctionChip<F> {
                 region.assign_advice(|| "b", self.config.b, 0, || Value::known(b))?;
                 region.assign_advice(|| "c", self.config.c, 0, || Value::known(c))?;
 
-                // 正式使用 IsZeroChip 子电路来检查 a - b 是否为零
+                // 使用 IsZeroChip 子电路来检查 a - b 是否为零, 从而判断 `a ?= b`
                 is_zero_chip.assign(&mut region, 0, Value::known(a - b))?;
 
                 let output = if a == b { c } else { a - b }; // Rust expr to calculate val.

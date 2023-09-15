@@ -40,8 +40,8 @@ impl<F: PrimeField> IsZeroChip<F> {
             //  yes  |  0  |    y     |        1           |   0
 
             // value() is a fn takes the virtual cell. and return a Expression.
-            let value = value(meta); 
-            let q_enable = q_enable(meta); //Selector
+            let value = value(meta);   // passed in a Closure.
+            let q_enable = q_enable(meta); // passed in a Closure.
             let value_inv = meta.query_advice(value_inv, Rotation::cur());
 
             // create a constant —— use Expression::Constant

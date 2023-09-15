@@ -37,6 +37,9 @@ impl<F: PrimeField> FiboChip<F> {
         meta.enable_equality(instance);
         
         // Gen Custom Gate:
+        // - `Rotation::cur()`  当前行 
+        // - `Rotation::next()`  下一行
+        // - `Rotation(2)`  再下一行
         meta.create_gate("add", |meta| {
             //
             // advice | selector
