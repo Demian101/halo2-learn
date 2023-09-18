@@ -12,7 +12,6 @@ use halo2_proofs::{
 // /       value     |   q_range_check
 // /       ----------------------------
 // /         v       |        1
-// /
 
 #[derive(Debug, Clone)]
 /// A range-constrained value in the circuit produced by the RangeCheckConfig.

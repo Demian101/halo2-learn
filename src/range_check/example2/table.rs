@@ -22,7 +22,7 @@ pub(super) struct RangeTableConfig<F: PrimeField, const RANGE: usize> {
 
 impl<F: PrimeField, const RANGE: usize> RangeTableConfig<F, RANGE> {
     pub(super) fn configure(meta: &mut ConstraintSystem<F>) -> Self {
-        // API to create this special fixed colum
+        // API to create this special fixed colum : Lookup column
         let value = meta.lookup_table_column();
 
         Self {
@@ -35,7 +35,7 @@ impl<F: PrimeField, const RANGE: usize> RangeTableConfig<F, RANGE> {
     // This action is performed at key gen time
     pub(super) fn load(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         // firstly, for some RANGE we want to load all the values and assign it to the lookup table
-        // assign_table is a special api that only works for lookup tables
+        // assign_table is a special API that only works for `lookup tables`
         layouter.assign_table (
             || "load range-check table",
             |mut table| {

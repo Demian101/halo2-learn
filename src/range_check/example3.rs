@@ -51,7 +51,8 @@ impl<F: PrimeField, const NUM_BITS: usize, const RANGE: usize> RangeCheckConfig<
         num_bits: Column<Advice>,
         value: Column<Advice>,
     ) -> Self {
-        let q_lookup = meta.complex_selector();
+        let q_lookup = meta.complex_selector();  // complex_selector
+        // 配置查找表 configure lookup table.
         let table = RangeTableConfig::configure(meta);
 
         meta.lookup(|meta| {
@@ -61,8 +62,8 @@ impl<F: PrimeField, const NUM_BITS: usize, const RANGE: usize> RangeCheckConfig<
 
             // q_lookup = 1, not_q_lookup = 0 ; q_lookup = 0, not_q_lookup = 1
             let not_q_lookup = Expression::Constant(F::ONE ) - q_lookup.clone();
-            let default_num_bits = Expression::Constant(F::ONE); // 1-bit
-            let default_value = Expression::Constant(F::ZERO); // 0 is a 1-bit value
+            let default_num_bits = Expression::Constant(F::ONE);// 1-bit
+            let default_value = Expression::Constant(F::ZERO);  // 0 is a 1-bit value
  
             // default_num_bits / default_value only used when `q_lookup` is not active.
             let num_bits_expr =
@@ -71,7 +72,9 @@ impl<F: PrimeField, const NUM_BITS: usize, const RANGE: usize> RangeCheckConfig<
 
             // When q_lookup is active, the circuit will use the actual advice values, 
             //   but when it's not, the circuit will use the default values.
-            // what does it mean ????? 
+            // 根据 meta.lookup 源码(query_fixed_index), 我们需要确保:
+            //  - num_bits_expr ∈  table.num_bits 和
+            //  - value_expr ∈ table.value  都成立
             vec![(num_bits_expr, table.num_bits), (value_expr, table.value)]
 
             // This is `num_bits` when q_lookup = 1

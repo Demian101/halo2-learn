@@ -80,30 +80,37 @@ impl<F: PrimeField, const RANGE: usize> Circuit<F> for MyCircuit<F, RANGE> {
     }
 
     // define the constraints, mutate the provided ConstraintSystem, and output the resulting FrameType
+    // 改变(mutate) 提供的 ConstraintSystem，并输出结果的 FrameType
     fn configure(cs: &mut ConstraintSystem<F>) -> Self::Config {
         // Create the column marker types. Requests the CS to allocate a new column (giving it a unique cs-global index and incrementing its
-        // num_selectors, num_fixed_columns, num_advice_columns, or num_instance_columns).
+        // 创建列标记类型。请求 CS 分配一个新列（给它一个唯一的 cs-global 索引并增加它的
+        //   num_selectors, num_fixed_columns, num_advice_columns, or num_instance_columns).
         let advice_column = cs.advice_column();
-        let q_range_check = cs.selector();
+        let q_range_check = cs.selector(); // Selector
 
         // When we use cs.query_advice or cs.query_selector, we obtain an Expression which is a reference to a cell in the matrix.
-        //         Expression::Advice {
-        //    query_index: self.meta.query_advice_index(column, at),
-        //    column_index: column.index,
-        //    rotation: at,
-        //}
+        // 访问 cs.query_advice / query_selector 获得一个 Expression，它是矩阵中一个单元格的引用(reference)
+        //   Expression::Advice {
+        //     query_index: self.meta.query_advice_index(column, at),
+        //     column_index: column.index,
+        //     rotation: at,
+        //   }
         // Such an a_{ij} or a_{this_row + at, column} can be treated as a symbolic variable and put into a polynomial constraint.
-        // More precisely, this is a relative reference wrt rows.
+        // More precisely, this is a relative reference wrt rows. 
+        // 例如 a_{ij} / a_{this_row + at, column} 会被视为一个符号变量，并放入一个多项式约束中。
+        // (这是一个相对于行的相对引用)
 
         // cs.create_gate takes a function from virtual_cells to contraints, pushing the constraints to the cs's accumulator.  So this puts
         // (value.clone()) * (1 - value.clone()) * (2 - value.clone()) * ... * (R - 1 - value.clone())
         // into the constraint list.
+        // 注意 [VirtualCells], 它持有对`ConstraintSystem`的可变引用，存储已查询的选择器/不同类型的列
         cs.create_gate("range check", |virtual_cells| {
             let q = virtual_cells.query_selector(q_range_check);
             let value = virtual_cells.query_advice(advice_column, Rotation::cur());
 
             // Given a range R and a value v, returns the expression
             // (v) * (1 - v) * (2 - v) * ... * (R - 1 - v)
+            //  Range Check poly:
             let rc_polynomial = (1..RANGE).fold(value.clone(), |expr, i| {
                 expr * (Expression::Constant(F::from(i as u64)) - value.clone())
             });
@@ -125,17 +132,19 @@ impl<F: PrimeField, const RANGE: usize> Circuit<F> for MyCircuit<F, RANGE> {
         mut layouter: impl Layouter<F>, // layouter is our 'write buffer' for the circuit
     ) -> Result<(), Error> {
         // From the function docs:
-        // Assign a region of gates to an absolute row number.
+        // Assign a region of gates to an absolute row number. 将门的 region 分配一个绝对行号。
         // Inside the closure, the chip may freely use relative offsets; the `Layouter` will
         // treat these assignments as a single "region" within the circuit. Outside this
         // closure, the `Layouter` is allowed to optimise as it sees fit.
+        // 闭包内，chip 可以自由使用相对偏移；`Layouter` 会将这些 assignments 视为电路中的单个“region”。
+        // 在闭包外部，`Layouter` 可以根据需要进行优化
 
         layouter.assign_region(
             || "Assign value", // the name of the region
             |mut region| {
                 let offset = 0;
 
-                // Enable q_range_check. Remember that q_range_check is a label, a Selector.  Calling its enable
+                // Enable q_range_check. Remember that q_range_check is a label, a Selector. Calling its enable
                 // - calls region.enable_selector(_,q_range_check,offset)  which
                 // - calls enable_selector on the region's RegionLayouter which
                 // - calls enable_selector on its "CS" (actually an Assignment<F> (a trait), and whatever impls that
@@ -146,6 +155,7 @@ impl<F: PrimeField, const RANGE: usize> Circuit<F> for MyCircuit<F, RANGE> {
                 // Similarly after indirection calls assign_advice in e.g. the MockProver, which
                 // takes a Value-producing to() and does something like
                 // CellValue::Assigned(to().into_field().evaluate().assign()?);
+                // 类似 MockProver 间接调用 assign_advice, 它接受一个 Value-producing 的 to() (进行赋值)
                 region.assign_advice(
                     || "value",
                     config.advice_column,
@@ -183,7 +193,7 @@ mod tests {
 
             // The MockProver arguments are log_2(nrows), the circuit (with advice already assigned), and the instance variables.
             // The MockProver will need to internally supply a Layouter for the constraint system to be actually written.
-
+            // k 对应 2^k 行, MockProver 将需要内部提供一个 Layouter，以便实际编写约束系统
             let prover = MockProver::run(k, &circuit, vec![]).unwrap();
             prover.assert_satisfied();
         }

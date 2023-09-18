@@ -25,8 +25,8 @@ struct RangeConstrained<F: PrimeField, const RANGE: usize>(AssignedCell<Assigned
 
 #[derive(Debug, Clone)]
 struct RangeCheckConfig<F: PrimeField, const RANGE: usize, const LOOKUP_RANGE: usize> {
-    q_range_check: Selector,
-    q_lookup: Selector,
+    q_range_check: Selector, // for *small* RANGE number.
+    q_lookup: Selector,      // for *large* RANGE number.
     value: Column<Advice>,
     table: RangeTableConfig<F, LOOKUP_RANGE>,  // Lookup table
 }
@@ -76,9 +76,11 @@ impl<F: PrimeField, const RANGE: usize, const LOOKUP_RANGE: usize>
             // multiplies the specified constraint by the selector, api 将指定的约束 × Selector
             Constraints::with_selector(q, [("range check", range_check(RANGE, value))])
         });
-        
+
         // 2. Lookup Gate  - range-check using lookup argument
         // 这个查找表将会在后面的范围检查中使用，以便在某些情况下使用查找表, 而不是表达式来执行范围检查。
+        // 即,如果某个值超出了简单范围检查所允许的范围，但在一个更大的范围内，那么就会使用这个查找门。
+        // 这里还没有 meta.complex_selector();
         meta.lookup(|meta| {
             let q_lookup = meta.query_selector(q_lookup);
             let value = meta.query_advice(value, Rotation::cur());
@@ -130,8 +132,12 @@ impl<F: PrimeField, const RANGE: usize, const LOOKUP_RANGE: usize>
 
                 // Assign value
                 region
-                    .assign_advice(|| "value", self.value, offset, || value)
-                    .map(RangeConstrained)
+                    .assign_advice(
+                        || "value",
+                        self.value,
+                        offset,
+                        || value
+                    ).map(RangeConstrained)
                 // assign_advice() 将 advice col 与值 value 关联，
                 // 并将结果封装在 RangeConstrained struct 中
             },
@@ -193,7 +199,7 @@ mod tests {
     }
 
     #[test]
-    fn test_range_check_2() {
+    fn test_range_check_2_lookup() {
         // in every circuit, we opt to reserve the last few rows of each advice cols 
         // for random values which are blinding factors(for zk), so `k` is always larger.
         let k = 9;
@@ -204,7 +210,7 @@ mod tests {
         for i in 0..RANGE {
             for j in 0..LOOKUP_RANGE {
                 // According to the <i, j> to construct different Circuit.
-                //MyCircuit::<Fp,.. ,..> : 指定 Constant 泛型的值.
+                // MyCircuit::<Fp,.. ,..> : 指定 Constant 泛型的值
                 let circuit = MyCircuit::<Fp, RANGE, LOOKUP_RANGE> {
                     simple_value: Value::known(Fp::from(i as u64).into()),
                     lookup_value: Value::known(Fp::from(j as u64).into()),

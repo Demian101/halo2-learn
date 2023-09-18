@@ -6,12 +6,6 @@ use halo2_proofs::{
     plonk::{ConstraintSystem, Error, TableColumn},
 };
 
-struct Sizes {
-    RANGE: usize,
-    NUM_BITS: usize,
-    LOOKUP_RANGE: usize,
-}
-
 /// A lookup table of values from 0..RANGE.
 #[derive(Debug, Clone)]
 pub(super) struct RangeTableConfig<F: PrimeField, const RANGE: usize> {
